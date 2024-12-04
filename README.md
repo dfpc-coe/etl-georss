@@ -1,6 +1,6 @@
-<h1 align='center'>ETL-Template</h1>
+<h1 align='center'>ETL-GeoRSS</h1>
 
-<p align='center'>Template Repository for creating new ETLs</p>
+<p align='center'>Import GeoRSS Feeds into CloudTAK</p>
 
 ## Development
 
@@ -38,7 +38,7 @@ node dist/task.js
 
 Deployment into the CloudTAK environment for configuration is done via automatic releases to the DFPC AWS environment.
 
-Github actions will build and push docker releases on every version tag which can then be automatically configured via the 
+Github actions will build and push docker releases on every version tag which can then be automatically configured via the
 CloudTAK API.
 
 Non-DFPC users will need to setup their own docker => ECS build system via something like Github Actions or AWS Codebuild.

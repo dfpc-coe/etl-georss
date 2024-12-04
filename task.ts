@@ -1,59 +1,60 @@
-import { Type, TSchema } from '@sinclair/typebox';
-import { FeatureCollection, Feature } from 'geojson';
-import type { Event } from '@tak-ps/etl';
-import ETL, { SchemaType, handler as internal, local, env } from '@tak-ps/etl';
+import { Static, Type, TSchema } from '@sinclair/typebox';
+import type { InputFeatureCollection } from '@tak-ps/etl'
+import ETL, { Event, SchemaType, handler as internal, local, env } from '@tak-ps/etl';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars --  Fetch with an additional Response.typed(TypeBox Object) definition
-import { fetch } from '@tak-ps/etl';
-
-/**
- * The Input Schema contains the environment object that will be requested via the CloudTAK UI
- * It should be a valid TypeBox object - https://github.com/sinclairzx81/typebox
- */
-const InputSchema = Type.Object({
-    'DEBUG': Type.Boolean({
-        default: false,
-        description: 'Print results in logs'
-    })
+const Environment = Type.Object({
+    URL: Type.String(),
+    QueryParams: Type.Optional(Type.Array(Type.Object({
+        key: Type.String(),
+        value: Type.String()
+    }))),
+    Headers: Type.Optional(Type.Array(Type.Object({
+        key: Type.String(),
+        value: Type.String()
+    }))),
 });
 
-/**
- * The Output Schema contains the known properties that will be returned on the
- * GeoJSON Feature in the .properties.metdata object
- */
-const OutputSchema = Type.Object({})
-
 export default class Task extends ETL {
+    static name = 'etl-georss';
+
     async schema(type: SchemaType = SchemaType.Input): Promise<TSchema> {
         if (type === SchemaType.Input) {
-            return InputSchema;
+            return Environment
         } else {
-            return OutputSchema;
+            return Type.Object({})
         }
     }
 
     async control(): Promise<void> {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Get the Environment from the Server and ensure it conforms to the schema
-        const env = await this.env(InputSchema);
+        const env = await this.env(Environment);
 
-        const features: Feature[] = [];
+        const url = new URL(env.URL);
 
-        // Get things here and convert them to GeoJSON Feature Collections
-        // That conform to the node-cot Feature properties spec
-        // https://github.com/dfpc-coe/node-CoT/
-
-        const fc: FeatureCollection = {
-            type: 'FeatureCollection',
-            features: features
+        for (const param of env.QueryParams || []) {
+            url.searchParams.append(param.key, param.value);
         }
+
+        const headers: Record<string, string> = {};
+        for (const header of env.Headers || []) {
+            headers[header.key] = header.value;
+        }
+
+        await fetch(url, {
+            method: 'GET',
+            headers
+        });
+
+        const fc: Static<typeof InputFeatureCollection> = {
+            type: 'FeatureCollection',
+            features: []
+        };
 
         await this.submit(fc);
     }
 }
 
-env(import.meta.url)
-await local(new Task(), import.meta.url);
+await local(new Task(import.meta.url), import.meta.url);
 export async function handler(event: Event = {}) {
-    return await internal(new Task(), event);
+    return await internal(new Task(import.meta.url), event);
 }
 
